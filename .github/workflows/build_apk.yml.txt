@@ -1,47 +1,29 @@
-name: Build APK Rotas Bus
+name: Build APK
+
 on:
   push:
-    branches: [ main, master ]
-    tags: [ 'v*' ]
-permissions:
-  contents: write
+    branches: [main]
+
 jobs:
   build:
-    name: Gerar APK
     runs-on: ubuntu-latest
+
     steps:
-      - name: 📥 Baixar código
-        uses: actions/checkout@v4
-      - name: ☕ Configurar Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'zulu'
-          java-version: '17'
-      - name: 🔧 Configurar Flutter
+      - uses: actions/checkout@v4
+
+      - name: Configurar Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: 'stable'
-          cache: true
-      - name: 🔑 Inserir chave da API
-        run: |
-          sed -i 's|SUA_CHAVE_AQUI|${{ secrets.GOOGLE_MAPS_API_KEY }}|g' android/app/src/main/AndroidManifest.xml
-      - name: 📦 Instalar pacotes
+          flutter-version: '3.24.0'
+
+      - name: Instalar dependências
         run: flutter pub get
-      - name: 🔨 Compilar APK
-        run: flutter build apk --release --split-per-abi
-      - name: 📎 Salvar APK
+
+      - name: Gerar APK
+        run: flutter build apk --release
+
+      - name: Disponibilizar APK
         uses: actions/upload-artifact@v4
         with:
-          name: APK‑Rotas‑Bus
-          path: build/app/outputs/flutter‑apk/*.apk
-      - name: 🚀 Publicar Release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: ncipollo/release-action@v1
-        with:
-          allowUpdates: true
-          generateReleaseNotes: true
-          artifacts: "build/app/outputs/flutter‑apk/*.apk"
-          name: Rotas Bus ${{ github.ref_name }}
-          body: |
-            ✅ Versão compilada automaticamente pelo GitHub Actions
-            📱 Arquivos APK prontos para instalação
+          name: Rotas_Bus_APK
+          path: build/app/outputs/flutter-apk/app-release.apk
