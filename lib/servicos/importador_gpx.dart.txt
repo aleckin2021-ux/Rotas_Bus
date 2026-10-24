@@ -1,0 +1,35 @@
+import 'dart:math';
+import 'package:xml/xml.dart';
+import 'package:google_maps_flutter.dart';
+import '../modelos/rota.dart';
+import 'calculos.dart';
+
+class ImportadorGPX {
+  static Rota? importar(String conteudoArquivo, String nomeArquivo) {
+    try {
+      final documento = XmlDocument.parse(conteudoArquivo);
+      final trkpts = documento.findAllElements('trkpt');
+      if (trkpts.isEmpty) return null;
+
+      final List<LatLng> pontos = [];
+      for (final p in trkpts) {
+        final lat = double.parse(p.getAttribute('lat')!);
+        final lon = double.parse(p.getAttribute('lon')!);
+        pontos.add(LatLng(lat, lon));
+      }
+
+      final distancia = Calculos.distanciaTotal(pontos);
+      return Rota(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        nome: nomeArquivo.replaceAll('.gpx', ''),
+        data: DateTime.now(),
+        pontos: pontos,
+        distanciaKm: distancia,
+        duracao: Duration.zero,
+        eManual: false,
+      );
+    } catch (e) {
+      return null;
+    }
+  }
+}

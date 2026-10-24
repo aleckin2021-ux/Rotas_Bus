@@ -1,0 +1,39 @@
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
+import '../modelos/rota.dart';
+
+class Armazenamento {
+  static Future<File> _arquivo() async {
+    final dir = await getApplicationDocumentsDirectory();
+    return File('${dir.path}/rotas.json');
+  }
+
+  static Future<List<Rota>> carregarRotas() async {
+    try {
+      final file = await _arquivo();
+      if (!await file.exists()) return [];
+      final conteudo = await file.readAsString();
+      final lista = json.decode(conteudo);
+      return lista.map((item) => Rota.fromMap(item)).toList();
+    } catch (e) {
+      debugPrint('Erro ao carregar: $e');
+      return [];
+    }
+  }
+
+  static Future<void> salvarRota(Rota rota) async {
+    final rotas = await carregarRotas();
+    rotas.insert(0, rota);
+    final file = await _arquivo();
+    await file.writeAsString(json.encode(rotas.map((r) => r.toMap()).toList()));
+  }
+
+  static Future<void> excluirRota(String id) async {
+    final rotas = await carregarRotas();
+    final filtradas = rotas.where((r) => r.id != id).toList();
+    final file = await _arquivo();
+    await file.writeAsString(json.encode(filtradas.map((r) => r.toMap()).toList()));
+  }
+}

@@ -1,0 +1,94 @@
+import 'package:flutter/material.dart';
+import 'package:google_maps_flutter.dart';
+import 'package:file_picker/file_picker.dart';
+import '../modelos/rota.dart';
+import '../servicos/armazenamento.dart';
+import '../servicos/importador_gpx.dart';
+
+class TelaRotasSalvas extends StatefulWidget {
+  const TelaRotasSalvas({super.key});
+
+  @override
+  State<TelaRotasSalvas> createState() => _TelaRotasSalvasState();
+}
+
+class _TelaRotasSalvasState extends State<TelaRotasSalvas> {
+  List<Rota> _rotas = [];
+  bool _carregando = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _carregarLista();
+  }
+
+  Future<void> _carregarLista() async {
+    final lista = await Armazenamento.carregarRotas();
+    setState(() { _rotas = lista; _carregando = false; });
+  }
+
+  void _abrirVisualizacao(Rota rota) {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => TelaVerRota(rota: rota)));
+  }
+
+  Future<void> _apagarRota(String id) async {
+    await Armazenamento.excluirRota(id);
+    _carregarLista();
+  }
+
+  Future<void> _importarArquivoGpx() async {
+    final resultado = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['gpx']);
+    if (resultado == null || resultado.files.single.path == null) return;
+    final arquivo = resultado.files.single;
+    final conteudo = await arquivo.xFile.readAsString();
+    final rota = ImportadorGPX.importar(conteudo, arquivo.name);
+    if (!mounted) return;
+    if (rota == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('❌ Arquivo inválido ou sem pontos')));
+      return;
+    }
+    await Armazenamento.salvarRota(rota);
+    await _carregarLista();
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✅ Rota importada com sucesso!')));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF12121F),
+      appBar: AppBar(title: const Text('Rotas Salvas'), backgroundColor: const Color(0xFF1A1A2E), actions: [
+        IconButton(icon: const Icon(Icons.upload_file, color: Colors.greenAccent), onPressed: _importarArquivoGpx, tooltip: 'Importar GPX')
+      ]),
+      body: _carregando ? const Center(child: CircularProgressIndicator(color: Colors.greenAccent))
+          : _rotas.isEmpty ? const Center(child: Text('Nenhuma rota salva ainda', style: TextStyle(color: Colors.white54)))
+          : ListView.builder(padding: const EdgeInsets.all(12), itemCount: _rotas.length, itemBuilder: (ctx, i) {
+              final r = _rotas[i];
+              return Card(color: const Color(0xFF1E1E2F), margin: const EdgeInsets.only(bottom:10), child: ListTile(
+                title: Text(r.nome, style: const TextStyle(color: Colors.white)),
+                subtitle: Text('${r.distanciaKm.toStringAsFixed(2)} km • ${r.pontos.length} pontos', style: const TextStyle(color: Colors.white60)),
+                trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(r.eManual ? Icons.edit : Icons.gps_fixed, color: Colors.greenAccent, size:18),
+                  IconButton(icon: const Icon(Icons.delete, color: Colors.redAccent), onPressed: () => _apagarRota(r.id))
+                ]),
+                onTap: () => _abrirVisualizacao(r),
+              ));
+            })
+    );
+  }
+}
+
+class TelaVerRota extends StatelessWidget {
+  final Rota rota;
+  const TelaVerRota({super.key, required this.rota});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(rota.nome), backgroundColor: const Color(0xFF1A1A2E)),
+      body: GoogleMap(
+        initialCameraPosition: CameraPosition(target: rota.pontos.isNotEmpty ? rota.pontos.first : const LatLng(-25.4284,‑49.2733), zoom:13),
+        polylines: { Polyline(polylineId: const PolylineId('visual'), points: rota.pontos, color: Colors.greenAccent, width:5) }
+      )
+    );
+  }
+}

@@ -1,0 +1,9 @@
+/build/
+*.apk
+/ios/Podfile.lock
+/pubspec.lock
+/android/local.properties
+/key.properties
+.dart_tool/
+.flutter‑plugins
+.flutter‑plugins‑dependencies

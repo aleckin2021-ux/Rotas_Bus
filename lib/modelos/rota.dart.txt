@@ -1,0 +1,48 @@
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+
+class Rota {
+  final String id;
+  final String nome;
+  final DateTime data;
+  final List<LatLng> pontos;
+  final double distanciaKm;
+  final Duration duracao;
+  final bool eManual;
+
+  Rota({
+    required this.id,
+    required this.nome,
+    required this.data,
+    required this.pontos,
+    required this.distanciaKm,
+    required this.duracao,
+    required this.eManual,
+  });
+
+  Map<String, dynamic> toMap() => {
+    'id': id,
+    'nome': nome,
+    'data': data.toIso8601String(),
+    'pontos': pontos.map((p) => [p.latitude, p.longitude]).toList(),
+    'distanciaKm': distanciaKm,
+    'duracaoSegundos': duracao.inSeconds,
+    'eManual': eManual,
+  };
+
+  factory Rota.fromMap(Map<String, dynamic> m) => Rota(
+    id: m['id'],
+    nome: m['nome'],
+    data: DateTime.parse(m['data']),
+    pontos: (m['pontos'] as List).map((p) => LatLng(p[0], p[1])).toList(),
+    distanciaKm: m['distanciaKm'],
+    duracao: Duration(seconds: m['duracaoSegundos']),
+    eManual: m['eManual'] ?? false,
+  );
+
+  String get duracaoFormatada {
+    final h = duracao.inHours.toString().padLeft(2, '0');
+    final m = (duracao.inMinutes % 60).toString().padLeft(2, '0');
+    final s = (duracao.inSeconds % 60).toString().padLeft(2, '0');
+    return '$h:$m:$s';
+  }
+}

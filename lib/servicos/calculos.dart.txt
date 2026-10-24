@@ -1,0 +1,28 @@
+import 'dart:math';
+import 'package:google_maps_flutter.dart';
+
+class Calculos {
+  static double distanciaEntre(LatLng a, LatLng b) {
+    const raioTerra = 6371;
+    final lat1 = a.latitude * pi / 180;
+    final lon1 = a.longitude * pi / 180;
+    final lat2 = b.latitude * pi / 180;
+    final lon2 = b.longitude * pi / 180;
+
+    final dLat = lat2 - lat1;
+    final dLon = lon2 - lon1;
+
+    final h = pow(sin(dLat / 2), 2) +
+        cos(lat1) * cos(lat2) * pow(sin(dLon / 2), 2);
+
+    return raioTerra * 2 * atan2(sqrt(h), sqrt(1‑h));
+  }
+
+  static double distanciaTotal(List<LatLng> pontos) {
+    double dist = 0;
+    for (int i = 1; i < pontos.length; i++) {
+      dist += distanciaEntre(pontos[i‑1], pontos[i]);
+    }
+    return dist;
+  }
+}

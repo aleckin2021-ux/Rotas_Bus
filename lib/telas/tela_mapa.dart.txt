@@ -1,0 +1,170 @@
+import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:geolocator/geolocator.dart';
+import 'dart:async';
+import '../modelos/rota.dart';
+import '../servicos/calculos.dart';
+import '../servicos/armazenamento.dart';
+import '../widgets/painel_info.dart';
+import 'tela_rotas_salvas.dart';
+
+class TelaMapa extends StatefulWidget {
+  const TelaMapa({super.key});
+
+  @override
+  State<TelaMapa> createState() => _TelaMapaState();
+}
+
+class _TelaMapaState extends State<TelaMapa> {
+  GoogleMapController? _controladorMapa;
+  final List<LatLng> _pontos = [];
+  bool _gravando = false;
+  bool _modoManual = false;
+  DateTime? _inicio;
+  Timer? _temporizador;
+  double _distanciaAtual = 0;
+
+  Set<Polyline> _linhaRota = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _pedirPermissoes();
+  }
+
+  Future<void> _pedirPermissoes() async {
+    await Geolocator.requestPermission();
+  }
+
+  void _aoTocarMapa(LatLng ponto) {
+    if (!_modoManual && !_gravando) return;
+    setState(() {
+      _pontos.add(ponto);
+      _distanciaAtual = Calculos.distanciaTotal(_pontos);
+      _atualizarLinha();
+    });
+  }
+
+  void _atualizarLinha() {
+    _linhaRota = {
+      Polyline(
+        polylineId: const PolylineId('rota_atual'),
+        points: _pontos,
+        color: Colors.greenAccent,
+        width: 5,
+      )
+    };
+  }
+
+  void _iniciarGravacao() {
+    setState(() {
+      _gravando = true;
+      _modoManual = false;
+      _pontos.clear();
+      _distanciaAtual = 0;
+      _inicio = DateTime.now();
+      _linhaRota.clear();
+    });
+    Geolocator.getPositionStream(locationSettings: const LocationSettings(distanceFilter:5)).listen((posicao) {
+      if (!_gravando) return;
+      final ponto = LatLng(posicao.latitude, posicao.longitude);
+      setState(() {
+        _pontos.add(ponto);
+        _distanciaAtual = Calculos.distanciaTotal(_pontos);
+        _atualizarLinha();
+      });
+    });
+    _temporizador = Timer.periodic(const Duration(seconds:1), (_) => setState((){}));
+  }
+
+  void _iniciarModoManual() {
+    setState(() {
+      _modoManual = true;
+      _gravando = false;
+      _pontos.clear();
+      _distanciaAtual = 0;
+      _inicio = DateTime.now();
+      _linhaRota.clear();
+    });
+    _temporizador = Timer.periodic(const Duration(seconds:1), (_) => setState((){}));
+  }
+
+  Future<void> _pararESalvar() async {
+    _temporizador?.cancel();
+    if (_pontos.length <2) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Adicione pelo menos 2 pontos!')));
+      setState(() { _gravando = false; _modoManual = false; });
+      return;
+    }
+    final duracao = DateTime.now().difference(_inicio!);
+    final rota = Rota(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      nome: 'Rota ${_modoManual ? 'Manual' : 'Automática'} - ${DateTime.now().day}/${DateTime.now().month}',
+      data: DateTime.now(),
+      pontos: List.from(_pontos),
+      distanciaKm: _distanciaAtual,
+      duracao: duracao,
+      eManual: _modoManual,
+    );
+    await Armazenamento.salvarRota(rota);
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✅ Rota salva com sucesso!')));
+    setState(() {
+      _gravando = false;
+      _modoManual = false;
+      _pontos.clear();
+      _distanciaAtual = 0;
+      _linhaRota.clear();
+    });
+  }
+
+  Duration get _duracaoDecorrida => _inicio == null ? Duration.zero : DateTime.now().difference(_inicio!);
+
+  @override
+  void dispose() {
+    _temporizador?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF12121F),
+      appBar: AppBar(title: const Text('Rotas Bus', style: TextStyle(fontSize:22, fontWeight:FontWeight.bold)), centerTitle:true, backgroundColor: const Color(0xFF1A1A2E), elevation:0),
+      body: Column(children: [
+        PainelInfo(ativo: _gravando || _modoManual, distancia: _distanciaAtual, duracao: _duracaoDecorrida),
+        Expanded(child: GoogleMap(
+          onMapCreated: (ctrl) => _controladorMapa = ctrl,
+          onTap: _aoTocarMapa,
+          myLocationEnabled: true,
+          polylines: _linhaRota,
+          initialCameraPosition: const CameraPosition(target: LatLng(-25.4284,‑49.2733), zoom:13),
+        )),
+        Padding(padding: const EdgeInsets.all(16), child: Column(children: [
+          SizedBox(width: double.infinity, child: ElevatedButton(
+            onPressed: (_gravando || _modoManual) ? _pararESalvar : _iniciarGravacao,
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, padding: const EdgeInsets.symmetric(vertical:18), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+            child: Text((_gravando || _modoManual) ? 'PARAR E SALVAR' : 'GRAVAR', style: const TextStyle(fontSize:18, fontWeight:FontWeight.bold)),
+          )),
+          const SizedBox(height:10),
+          SizedBox(width: double.infinity, child: ElevatedButton(
+            onPressed: (_gravando || _modoManual) ? _pararESalvar : _iniciarModoManual,
+            style: ElevatedButton.styleFrom(backgroundColor: _modoManual ? Colors.green : Colors.red, padding: const EdgeInsets.symmetric(vertical:18), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+            child: Text(_modoManual ? 'MODO ATIVO • TOQUE NO MAPA' : 'GRAVAR MANUAL', style: const TextStyle(fontSize:18, fontWeight:FontWeight.bold)),
+          )),
+          const SizedBox(height:10),
+          SizedBox(width: double.infinity, child: OutlinedButton(
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TelaRotasSalvas())),
+            style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical:18), side: const BorderSide(color: Color(0xFF76FF03), width:2), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+            child: const Text('ROTAS SALVAS', style: TextStyle(fontSize:18, fontWeight:FontWeight.bold, color: Color(0xFF76FF03))),
+          )),
+        ]))
+      ])
+    );
+  }
+}
+
+class MapStyle {
+  static const String escuro = '''
+  [{"elementType":"geometry","stylers":[{"color":"#212121"}]},{"elementType":"labels.text.stroke","stylers":[{"color":"#212121"}]},{"featureType":"road","elementType":"geometry","stylers":[{"color":"#373737"}]},{"featureType":"water","elementType":"geometry","stylers":[{"color":"#000000"}]}]
+  ''';
+}
