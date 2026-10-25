@@ -19,7 +19,7 @@ jobs:
           flutter-version: '3.24.x'
 
       - name: Restaurar pasta Android
-        run: flutter create --org com.rotasbus .
+        run: flutter create --org com.rotasbus --project-name rotas_bus .
 
       - name: Instalar dependências
         run: flutter pub get
