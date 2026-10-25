@@ -1,5 +1,5 @@
 name: rotas_bus
-description: App de gravação de rotas — mapa gratuito e importação GPX
+description: App de gravação de rotas
 version: 1.0.0+1
 
 environment:
@@ -10,7 +10,6 @@ dependencies:
     sdk: flutter
   latlong2: ^0.9.1
   flutter_map: ^6.1.0
-  flutter_map_cached_tiles: ^1.0.0
   geolocator: ^13.0.1
   path_provider: ^2.1.5
   shared_preferences: ^2.3.2
