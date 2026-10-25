@@ -2,25 +2,27 @@ name: Build APK
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
 
 jobs:
   build:
+    name: Gerar APK
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Baixar código
+        uses: actions/checkout@v4
 
       - name: Configurar Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.0'
+          flutter-version: '3.27.x'  # ← Versão nova!
 
       - name: Instalar dependências
         run: flutter pub get
 
       - name: Gerar APK
-        run: flutter build apk --release
+        run: flutter build apk --release --no-enable-asserts
 
       - name: Disponibilizar APK
         uses: actions/upload-artifact@v4
