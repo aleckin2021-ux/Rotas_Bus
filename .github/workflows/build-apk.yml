@@ -21,6 +21,11 @@ jobs:
       - name: Restaurar pasta Android
         run: flutter create --org com.rotasbus --project-name rotas_bus .
 
+      - name: Configurar versão do Android SDK
+        run: |
+          sed -i 's/compilesdk = 34/compilesdk = 35/g' android/app/build.gradle
+          sed -i 's/targetsdk = 34/targetsdk = 35/g' android/app/build.gradle
+
       - name: Instalar dependências
         run: flutter pub get
 
