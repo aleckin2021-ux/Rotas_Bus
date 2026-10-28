@@ -18,20 +18,107 @@ jobs:
         with:
           flutter-version: '3.22.x'
 
-      - name: Salvar nossos arquivos
+      - name: Criar estrutura Android manualmente
         run: |
-          mkdir -p temp_backup/lib
-          cp -r lib/screens temp_backup/lib/ 2>/dev/null || true
-          cp lib/main.dart temp_backup/lib/ 2>/dev/null || true
+          mkdir -p android/app/src/main/kotlin/com/rotasbus/rotas_bus
+          mkdir -p android/app/src/main/res/values
 
-      - name: Criar estrutura Android
-        run: flutter create --org com.rotasbus --project-name rotas_bus --no-overwrite .
-
-      - name: Restaurar nossos arquivos
+      - name: Criar arquivo build.gradle raiz
         run: |
-          cp -r temp_backup/lib/screens lib/ 2>/dev/null || true
-          cp temp_backup/lib/main.dart lib/ 2>/dev/null || true
-          rm -rf temp_backup
+          cat > android/build.gradle << 'EOF'
+          buildscript {
+            ext.kotlin_version = '1.9.0'
+            repositories { google(); mavenCentral() }
+            dependencies {
+              classpath "com.android.tools.build:gradle:8.1.0"
+              classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+            }
+          }
+          allprojects { repositories { google(); mavenCentral() } }
+          rootProject.buildDir = '../build'
+          subprojects { project.buildDir = "\${rootProject.buildDir}/\${project.name}" }
+          subprojects { project.evaluationDependsOn(':app') }
+          tasks.register("clean", Delete) { delete rootProject.buildDir }
+          EOF
+
+      - name: Criar build.gradle do app
+        run: |
+          cat > android/app/build.gradle << 'EOF'
+          def localPropertiesFile = rootProject.file("local.properties")
+          def localProperties = new Properties()
+          if (localPropertiesFile.exists()) { localProperties.load(new FileInputStream(localPropertiesFile)) }
+          def flutterSdkPath = localProperties.getProperty('flutter.sdk')
+          if (flutterSdkPath == null) { throw new Exception("Flutter SDK not found") }
+          apply from: "\${flutterSdkPath}/packages/flutter_tools/gradle/flutter.gradle"
+          android {
+            namespace "com.rotasbus.rotas_bus"
+            compileSdk 34
+            defaultConfig {
+              applicationId "com.rotasbus.rotas_bus"
+              minSdk 21
+              targetSdk 34
+              versionCode 1
+              versionName "1.0.0"
+            }
+            buildTypes { release { minifyEnabled false } }
+            compileOptions {
+              sourceCompatibility JavaVersion.VERSION_1_8
+              targetCompatibility JavaVersion.VERSION_1_8
+            }
+          }
+          dependencies { implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.0" }
+          EOF
+
+      - name: Criar gradle.properties
+        run: |
+          cat > android/gradle.properties << 'EOF'
+          org.gradle.jvmargs=-Xmx4G
+          android.useAndroidX=true
+          android.enableJetifier=true
+          EOF
+
+      - name: Criar settings.gradle
+        run: |
+          cat > android/settings.gradle << 'EOF'
+          include ':app'
+          def localPropertiesFile = rootProject.file("local.properties")
+          def localProperties = new Properties()
+          if (localPropertiesFile.exists()) { localProperties.load(new FileInputStream(localPropertiesFile)) }
+          def flutterSdkPath = localProperties.getProperty('flutter.sdk')
+          if (flutterSdkPath == null) { throw new Exception("Flutter SDK not found") }
+          flutter.sdkPath = "\${flutterSdkPath}"
+          EOF
+
+      - name: Criar AndroidManifest.xml
+        run: |
+          cat > android/app/src/main/AndroidManifest.xml << 'EOF'
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+            <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+            <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+            <uses-permission android:name="android.permission.INTERNET"/>
+            <application android:label="Rotas Bus" android:name="${applicationName}" android:icon="@mipmap/ic_launcher">
+              <activity android:name=".MainActivity" android:exported="true"
+                android:launchMode="singleTop" android:theme="@style/LaunchTheme"
+                android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+                android:hardwareAccelerated="true" android:windowSoftInputMode="adjustResize">
+                <meta-data android:name="io.flutter.embedding.android.NormalTheme" android:value="true"/>
+                <intent-filter>
+                  <action android:name="android.intent.action.MAIN"/>
+                  <category android:name="android.intent.category.LAUNCHER"/>
+                </intent-filter>
+              </activity>
+              <meta-data android:name="flutterEmbedding" android:value="2"/>
+            </application>
+          </manifest>
+          EOF
+
+      - name: Criar MainActivity.kt
+        run: |
+          cat > android/app/src/main/kotlin/com/rotasbus/rotas_bus/MainActivity.kt << 'EOF'
+          package com.rotasbus.rotas_bus
+          import io.flutter.embedding.android.FlutterActivity
+          class MainActivity: FlutterActivity()
+          EOF
 
       - name: Instalar dependências
         run: flutter pub get
