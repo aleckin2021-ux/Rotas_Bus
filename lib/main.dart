@@ -1,6 +1,6 @@
-import 'screens/home_screen.dart';
-import 'screens/rotas_salvas_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:rotas_bus/screens/home_screen.dart';
+import 'package:rotas_bus/screens/rotas_salvas_screen.dart';
 
 void main() {
   runApp(const RotasBusApp());
