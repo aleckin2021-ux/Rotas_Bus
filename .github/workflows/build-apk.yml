@@ -18,16 +18,20 @@ jobs:
         with:
           flutter-version: '3.22.x'
 
-      - name: Restaurar pasta Android
-        run: flutter create --org com.rotasbus --project-name rotas_bus .
-
-      - name: Corrigir compatibilidade do Gradle
+      - name: Salvar nossos arquivos
         run: |
-          cd android
-          echo "android { namespace \"com.rotasbus.app\" compileSdk 34 }" > temp.txt
-          sed -i 's/compileSdk .*/compileSdk 34/g' app/build.gradle
-          sed -i 's/minSdk .*/minSdk 21/g' app/build.gradle
-          sed -i 's/targetSdk .*/targetSdk 34/g' app/build.gradle
+          mkdir -p temp_backup/lib
+          cp -r lib/screens temp_backup/lib/ 2>/dev/null || true
+          cp lib/main.dart temp_backup/lib/ 2>/dev/null || true
+
+      - name: Criar estrutura Android
+        run: flutter create --org com.rotasbus --project-name rotas_bus --no-overwrite .
+
+      - name: Restaurar nossos arquivos
+        run: |
+          cp -r temp_backup/lib/screens lib/ 2>/dev/null || true
+          cp temp_backup/lib/main.dart lib/ 2>/dev/null || true
+          rm -rf temp_backup
 
       - name: Instalar dependências
         run: flutter pub get
