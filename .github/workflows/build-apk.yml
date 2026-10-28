@@ -16,15 +16,18 @@ jobs:
       - name: Configurar Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.x'
+          flutter-version: '3.22.x'
 
       - name: Restaurar pasta Android
         run: flutter create --org com.rotasbus --project-name rotas_bus .
 
-      - name: Configurar versão do Android SDK
+      - name: Corrigir compatibilidade do Gradle
         run: |
-          sed -i 's/compilesdk = 34/compilesdk = 35/g' android/app/build.gradle
-          sed -i 's/targetsdk = 34/targetsdk = 35/g' android/app/build.gradle
+          cd android
+          echo "android { namespace \"com.rotasbus.app\" compileSdk 34 }" > temp.txt
+          sed -i 's/compileSdk .*/compileSdk 34/g' app/build.gradle
+          sed -i 's/minSdk .*/minSdk 21/g' app/build.gradle
+          sed -i 's/targetSdk .*/targetSdk 34/g' app/build.gradle
 
       - name: Instalar dependências
         run: flutter pub get
