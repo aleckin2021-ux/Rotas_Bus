@@ -13,156 +13,28 @@ jobs:
       - name: Baixar código
         uses: actions/checkout@v4
 
+      - name: Salvar nossos arquivos
+        run: |
+          mkdir -p backup
+          cp -r lib backup/
+          cp pubspec.yaml backup/
+          cp -r assets backup/ 2>/dev/null || true
+
       - name: Configurar Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.22.x'
 
-      - name: Criar pasta Android
+      - name: Criar projeto do zero
+        run: flutter create --org com.rotasbus --project-name rotas_bus --platforms android .
+
+      - name: Restaurar nossos arquivos
         run: |
-          mkdir -p android/app/src/main/kotlin/com/rotasbus/rotas_bus
-          mkdir -p android/app/src/main/res/values
+          cp -r backup/lib/* lib/
+          cp backup/pubspec.yaml .
+          rm -rf backup
 
-      - name: Criar settings.gradle CORRIGIDO
-        run: |
-          cat > android/settings.gradle << 'EOF'
-          pluginManagement {
-              def flutterSdkPath = {
-                  def propertiesFile = file("local.properties")
-                  if (!propertiesFile.exists()) {
-                      throw new Exception("Arquivo local.properties não encontrado")
-                  }
-                  def properties = new Properties()
-                  propertiesFile.withInputStream { properties.load(it) }
-                  def path = properties.getProperty("flutter.sdk")
-                  if (path == null) {
-                      throw new Exception("flutter.sdk não definido em local.properties")
-                  }
-                  return path
-              }()
-              includeBuild("\${flutterSdkPath}/packages/flutter_tools/gradle")
-              repositories {
-                  google()
-                  mavenCentral()
-                  gradlePluginPortal()
-              }
-          }
-          include ':app'
-          EOF
-
-      - name: Criar build.gradle raiz
-        run: |
-          cat > android/build.gradle << 'EOF'
-          buildscript {
-              ext.kotlin_version = '1.9.0'
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-              dependencies {
-                  classpath "com.android.tools.build:gradle:8.1.0"
-                  classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-              }
-          }
-          allprojects {
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-          }
-          rootProject.buildDir = '../build'
-          subprojects {
-              project.buildDir = "\${rootProject.buildDir}/\${project.name}"
-          }
-          subprojects {
-              project.evaluationDependsOn(':app')
-          }
-          tasks.register("clean", Delete) {
-              delete rootProject.buildDir
-          }
-          EOF
-
-      - name: Criar build.gradle do app
-        run: |
-          cat > android/app/build.gradle << 'EOF'
-          apply plugin: 'com.android.application'
-          apply plugin: 'kotlin-android'
-
-          android {
-              namespace "com.rotasbus.rotas_bus"
-              compileSdk 34
-
-              defaultConfig {
-                  applicationId "com.rotasbus.rotas_bus"
-                  minSdk 21
-                  targetSdk 34
-                  versionCode 1
-                  versionName "1.0.0"
-              }
-
-              buildTypes {
-                  release {
-                      minifyEnabled false
-                  }
-              }
-
-              compileOptions {
-                  sourceCompatibility JavaVersion.VERSION_1_8
-                  targetCompatibility JavaVersion.VERSION_1_8
-              }
-          }
-
-          dependencies {
-              implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.0"
-          }
-          EOF
-
-      - name: Criar gradle.properties
-        run: |
-          cat > android/gradle.properties << 'EOF'
-          org.gradle.jvmargs=-Xmx4G
-          android.useAndroidX=true
-          android.enableJetifier=true
-          EOF
-
-      - name: Criar AndroidManifest.xml
-        run: |
-          cat > android/app/src/main/AndroidManifest.xml << 'EOF'
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-            <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
-            <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
-            <uses-permission android:name="android.permission.INTERNET"/>
-            <application
-              android:label="Rotas Bus"
-              android:name="io.flutter.embedding.android.FlutterApplication"
-              android:icon="@mipmap/ic_launcher">
-              <activity
-                android:name=".MainActivity"
-                android:exported="true"
-                android:launchMode="singleTop"
-                android:theme="@style/LaunchTheme"
-                android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
-                android:hardwareAccelerated="true"
-                android:windowSoftInputMode="adjustResize">
-                <intent-filter>
-                  <action android:name="android.intent.action.MAIN"/>
-                  <category android:name="android.intent.category.LAUNCHER"/>
-                </intent-filter>
-              </activity>
-              <meta-data android:name="flutterEmbedding" android:value="2"/>
-            </application>
-          </manifest>
-          EOF
-
-      - name: Criar MainActivity.kt
-        run: |
-          cat > android/app/src/main/kotlin/com/rotasbus/rotas_bus/MainActivity.kt << 'EOF'
-          package com.rotasbus.rotas_bus
-          import io.flutter.embedding.android.FlutterActivity
-          class MainActivity : FlutterActivity()
-          EOF
-
-      - name: Gerar local.properties automaticamente
+      - name: Instalar dependências
         run: flutter pub get
 
       - name: Gerar APK
